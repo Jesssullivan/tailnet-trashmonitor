@@ -1,0 +1,72 @@
+"""tailnet-trashmonitor Bazel module.
+
+Bzlmod-only. Bazel handles RPM packaging (rules_pkg) and OCI image
+assembly (rules_oci). The SPA's pnpm + vite build runs out-of-band via
+`just spa-build`; Bazel packages the prebuilt static bundle from
+`spa/build/` into the OCI image. This keeps the Bazel surface minimal.
+"""
+
+module(
+    name = "tailnet_trashmonitor",
+    version = "0.0.1",
+    compatibility_level = 1,
+)
+
+# =============================================================================
+# Core Bazel deps
+# =============================================================================
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
+bazel_dep(name = "rules_pkg", version = "1.1.0")
+bazel_dep(name = "rules_oci", version = "2.0.1")
+bazel_dep(name = "rules_shell", version = "0.6.0")
+
+# =============================================================================
+# Upstream binaries fetched directly from release archives
+# =============================================================================
+
+http_archive_rule = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive_rule(
+    name = "mediamtx_linux_amd64",
+    url = "https://github.com/bluenviron/mediamtx/releases/download/v1.18.1/mediamtx_v1.18.1_linux_amd64.tar.gz",
+    sha256 = "b02cc1940885d4f383329a832b97372558e987205c8fd8276f6626ae84428c04",
+    build_file_content = """
+filegroup(
+    name = "binary",
+    srcs = ["mediamtx"],
+    visibility = ["//visibility:public"],
+)
+""",
+)
+
+http_archive_rule(
+    name = "caddy_linux_amd64",
+    url = "https://github.com/caddyserver/caddy/releases/download/v2.11.2/caddy_2.11.2_linux_amd64.tar.gz",
+    sha256 = "94391dfefe1f278ac8f387ab86162f0e88d87ff97df367f360e51e3cda3df56f",
+    build_file_content = """
+filegroup(
+    name = "binary",
+    srcs = ["caddy"],
+    visibility = ["//visibility:public"],
+)
+""",
+)
+
+# =============================================================================
+# OCI base image
+# =============================================================================
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Plain alpine base — caddy + mediamtx land as root-owned tar layers so
+# they exec cleanly under readOnlyRootFilesystem + drop:ALL.
+oci.pull(
+    name = "alpine_base",
+    image = "docker.io/library/alpine",
+    tag = "3.20",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "alpine_base", "alpine_base_linux_amd64")

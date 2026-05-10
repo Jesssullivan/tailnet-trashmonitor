@@ -1,0 +1,9 @@
+# sops + age creation rules. No encrypted secrets ship in this repo;
+# this file is here for operators who want to add their own (e.g., an
+# ansible become_password vault). Replace <your-age-recipient> with
+# a real recipient before encrypting.
+creation_rules:
+  - path_regex: secrets/.*\.(yaml|json)$
+    age: <your-age-recipient>
+  - path_regex: .*\.enc\.yaml$
+    age: <your-age-recipient>

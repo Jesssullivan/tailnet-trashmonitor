@@ -1,0 +1,30 @@
+---
+# Provision capture hosts: install the trashcam wrapper + systemd
+# units, write per-camera /etc/trashcam/<id>.env files, and enable
+# trashcam@<id>.service for each declared camera.
+#
+# Usage:
+#   cd ansible
+#   ansible-playbook playbooks/trashcam.yml -K
+#   ansible-playbook playbooks/trashcam.yml -K --limit <inventory-host>
+
+- name: trashcam capture hosts
+  hosts: trashcam_hosts
+  gather_facts: true
+  serial: 1                 # one host at a time so failures don't cascade
+
+  vars:
+    trashcam_push_host: "trashmonitor-rtsp"   # tailnet hostname of the cluster service
+    trashcam_push_port: 8554
+
+  pre_tasks:
+    - name: enable rpm fusion (free) on hosts that need it
+      ansible.builtin.dnf:
+        name:
+          - "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+        disable_gpg_check: true
+        state: present
+      when: trashcam_install_rpmfusion | default(false)
+
+  roles:
+    - role: trashcam

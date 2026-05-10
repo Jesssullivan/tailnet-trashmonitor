@@ -1,0 +1,46 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: trashmonitor
+  namespace: trashmonitor
+  labels:
+    app.kubernetes.io/name: trashmonitor
+    release: prometheus
+spec:
+  groups:
+    - name: trashmonitor.rules
+      interval: 30s
+      rules:
+        - alert: TrashmonitorPodNotReady
+          expr: |
+            kube_deployment_status_replicas_ready{namespace="trashmonitor",deployment="trashmonitor"} == 0
+          for: 2m
+          labels: { severity: warning }
+          annotations:
+            summary: "trashmonitor pod is not ready"
+            description: "trashmonitor deployment has zero ready replicas for >2m."
+
+        - alert: TrashmonitorPathNotReady
+          # MediaMTX emits one row per path: paths{state="ready|notReady"}=1.
+          # Alert when a configured path has no publisher for >5m. To
+          # suppress an intentionally-parked path, add a label matcher
+          # such as `name!="<parked>"`.
+          expr: |
+            paths{state="notReady"} == 1
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "trashmonitor path {{ $labels.name }} has no producer"
+            description: "No publisher attached to {{ $labels.name }} for >5m."
+
+        - alert: TrashmonitorPathInboundStalled
+          # Path is "ready" but no bytes for 2m — publisher attached
+          # but frames stopped. Catches the pre-broken-pipe state.
+          expr: |
+            paths{state="ready"} == 1
+            unless (rate(paths_inbound_bytes[2m]) > 0)
+          for: 2m
+          labels: { severity: warning }
+          annotations:
+            summary: "trashmonitor path {{ $labels.name }} stalled"
+            description: "Path is ready but inbound bytes are flat for >2m."

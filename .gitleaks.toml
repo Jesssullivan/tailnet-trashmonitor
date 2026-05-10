@@ -1,0 +1,57 @@
+# gitleaks config for tailnet-trashmonitor.
+#
+# Runs the default ruleset plus a small set of project-specific
+# allow/deny rules to keep the public repo clean of tenant identifiers
+# that snuck in during private bring-up.
+#
+# Usage: just gitleaks  (or: gitleaks detect --config .gitleaks.toml)
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "tenant-zone"
+description = "Public-zone leaks (replace with <your-zone> placeholder)"
+regex = '''(xoxd\.ai|sulliwood\.org|tinyland\.dev|tinyland-inc|jesssullivan\.github\.io|GloriousFlywheel)'''
+tags = ["pii", "tenant"]
+
+[[rules]]
+id = "tenant-host"
+description = "Tenant hostnames from private cluster (use generic placeholders)"
+regex = '''\b(blahaj|honey-sting-tailnet|honey|sting|bumble|taila4c78d\.ts\.net)\b'''
+tags = ["pii", "tenant"]
+
+[[rules]]
+id = "tenant-ip-cgnat"
+description = "Specific tailnet (CGNAT) IPs from prior bring-up"
+regex = '''\b100\.(126\.251\.111|98\.15\.72|104\.152\.110|122\.197\.52)\b'''
+tags = ["pii", "tenant"]
+
+[[rules]]
+id = "tenant-ticket"
+description = "Private issue tracker refs"
+regex = '''\bTIN-[0-9]{2,5}\b'''
+tags = ["pii", "tenant"]
+
+[allowlist]
+description = "Paths and patterns that are safe to ignore"
+paths = [
+  '''.*\.lock$''',
+  '''spa/pnpm-lock\.yaml''',
+  '''bazel-.*''',
+  '''\.bazel-cache/.*''',
+  '''node_modules/.*''',
+  '''\.gitleaks\.toml''',
+  # Local-only caches that are .gitignored. gitleaks --no-git scans
+  # the working tree, not just the index, so we belt-and-braces them
+  # here too.
+  '''\.gstack/.*''',
+  '''\.claude/.*''',
+  '''ansible/\.ansible_cache/.*''',
+]
+regexes = [
+  # Placeholder strings used in docs / examples.
+  '''<your-[a-z-]+>''',
+  # rules_oci publishes a public sha256 for upstream binaries.
+  '''sha256\s*=\s*"[a-f0-9]{64}"''',
+]

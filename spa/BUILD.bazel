@@ -1,0 +1,31 @@
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+
+package(default_visibility = ["//visibility:public"])
+
+# Source-level files needed by the SPA build (no Bazel-driven npm yet —
+# we drive vite via `just spa-build` and feed the output into the OCI
+# image as a tarball.)
+filegroup(
+    name = "sources",
+    srcs = glob(
+        include = [
+            "src/**",
+            "static/**",
+            "*.json",
+            "*.js",
+            "*.ts",
+            ".npmrc",
+            ".prettierrc",
+        ],
+        allow_empty = True,
+    ),
+)
+
+# Tar of the built static bundle. Run `just spa-build` first, then
+# `bazel build //spa:bundle` packages it.
+pkg_tar(
+    name = "bundle",
+    srcs = glob(["build/**"], allow_empty = True),
+    package_dir = "/srv/spa",
+    strip_prefix = "build",
+)

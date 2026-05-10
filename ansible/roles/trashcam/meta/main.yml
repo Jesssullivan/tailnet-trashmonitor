@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: trashcam
+  description: Install and configure trashcam ffmpeg-over-systemd capture daemon
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: EL
+      versions: ["10"]
+
+dependencies: []

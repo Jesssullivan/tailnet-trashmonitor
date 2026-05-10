@@ -1,0 +1,26 @@
+---
+# Example capture-host inventory. Copy to
+# `inventory/host_vars/<your-host>.yml`, add a matching entry in
+# `inventory/hosts.yml`, and adjust the cameras list to whatever the
+# host actually has plugged in.
+#
+# `id` becomes the MediaMTX path name (and the trashcam@<id>.service
+# instance name). Use stable, human-readable identifiers.
+#
+# `device` is the V4L2 device. For setups where USB enumeration is
+# stable across reboots, /dev/videoN works; otherwise prefer a
+# /dev/v4l/by-id/* symlink for stability.
+
+# MediaMTX HLS requires H.264. On EL10 this means installing the full
+# `ffmpeg` from rpmfusion-free — the stock `ffmpeg-free` has no x264
+# and `noopenh264` is a stub. Flip to false if your distro already
+# ships a libx264-enabled ffmpeg.
+trashcam_install_rpmfusion: true
+
+trashcam_cameras:
+  - id: cam-a
+    device: /dev/video0
+    fps: 5
+    quality: 8
+    width: 640
+    height: 480

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# trashcam-ffmpeg — capture from V4L2, transcode to H.264, push to
+# the cluster's RTSP ingest. MediaMTX HLS output requires H.264;
+# we transcode here rather than pass through the cam's MJPEG.
+#
+# Knobs come from /etc/trashcam/<id>.env (EnvironmentFile).
+
+set -euo pipefail
+
+: "${CAMERA_DEV:?CAMERA_DEV must be set}"
+: "${PUSH_URL:?PUSH_URL must be set}"
+FPS="${FPS:-5}"
+WIDTH="${WIDTH:-640}"
+HEIGHT="${HEIGHT:-480}"
+BITRATE="${BITRATE:-512k}"
+
+exec /usr/bin/ffmpeg \
+	-hide_banner -loglevel warning -nostdin \
+	-f v4l2 \
+	-input_format mjpeg \
+	-framerate "${FPS}" \
+	-video_size "${WIDTH}x${HEIGHT}" \
+	-i "${CAMERA_DEV}" \
+	-c:v libx264 \
+	-preset ultrafast \
+	-tune zerolatency \
+	-pix_fmt yuv420p \
+	-b:v "${BITRATE}" \
+	-g $((FPS * 2)) \
+	-an \
+	-f rtsp \
+	-rtsp_transport tcp \
+	"${PUSH_URL}"

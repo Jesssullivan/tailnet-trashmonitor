@@ -1,0 +1,54 @@
+# MediaMTX configuration for trashmonitor.
+# RTSP server accepts publishes from capture-host ffmpegs; HLS server
+# fans the streams out to the SPA via hls.js.
+
+logLevel: info
+logDestinations: [stdout]
+
+# Auth: tailnet is the boundary; allow anonymous publish/read/api.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+      - action: read
+      - action: playback
+      - action: api
+      - action: metrics
+      - action: pprof
+
+# RTSP server — capture hosts publish here.
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp]
+rtspAuthMethods: [basic]   # we use noauth via paths below
+
+# HLS — what the SPA consumes via hls.js.
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes        # produce HLS even if no viewer is watching
+hlsVariant: mpegts         # plain HLS works in every browser including hls.js
+hlsSegmentCount: 6
+hlsSegmentDuration: 1s
+hlsAllowOrigins: ["*"]
+
+# Disable everything else — keep the surface tight.
+rtmp: no
+webrtc: no
+srt: no
+api: yes
+apiAddress: :9997
+
+# Prometheus metrics for the cluster's observability stack to scrape.
+metrics: yes
+metricsAddress: :9998
+
+# Pre-declare slots so the SPA can render "offline" tiles before any
+# publisher connects. Replace these with your own camera identifiers
+# (they match the `id` field in the ansible trashcam_cameras list and
+# the `trashcam@<id>.service` instance name).
+paths:
+  cam-a:
+  cam-b:

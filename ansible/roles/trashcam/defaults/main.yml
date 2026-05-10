@@ -1,0 +1,10 @@
+---
+# Per-host inventory must override:
+#   trashcam_cameras: list of {id, device, fps, quality, width, height}
+trashcam_cameras: []
+
+trashcam_push_host: trashmonitor-rtsp
+trashcam_push_port: 8554
+
+trashcam_etc_dir: /etc/trashcam
+trashcam_unit_target: trashcam.target
