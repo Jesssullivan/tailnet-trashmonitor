@@ -1,0 +1,5 @@
+spa/node_modules
+spa/.svelte-kit
+# spa/build is intentionally NOT ignored — pkg_tar in spa/BUILD.bazel
+# needs to glob the prebuilt static bundle into the OCI image.
+spa/.vite

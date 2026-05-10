@@ -1,0 +1,38 @@
+[Unit]
+Description=trashcam capture (%i)
+Documentation=https://github.com/<your-org>/tailnet-trashmonitor
+After=network-online.target
+Wants=network-online.target
+PartOf=trashcam.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/trashcam/%i.env
+ExecStart=/usr/libexec/trashcam/trashcam-ffmpeg
+Restart=on-failure
+RestartSec=5s
+
+# Hardening — ffmpeg only needs /dev/video* + network.
+DynamicUser=yes
+SupplementaryGroups=video
+# char-video4linux covers any /dev/video* on this host (major 81).
+# Listing a single /dev/videoN here would silently deny the rest.
+DeviceAllow=char-video4linux rw
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+# Structured logs land in journald; consumers can scrape via OTel
+# journald receiver or Promtail.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trashcam-%i
+
+[Install]
+WantedBy=trashcam.target

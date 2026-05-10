@@ -1,0 +1,8 @@
+[Unit]
+Description=trashcam — all camera capture units
+Documentation=https://github.com/<your-org>/tailnet-trashmonitor
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Install]
+WantedBy=multi-user.target

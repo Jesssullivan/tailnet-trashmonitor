@@ -1,0 +1,117 @@
+---
+# Install trashcam directly from sources in ../capture/. This avoids
+# the rpmbuild detour for ansible-driven provisioning. The Bazel
+# pkg_rpm target still produces a standalone RPM for non-ansible
+# distribution.
+
+- name: ensure full ffmpeg (with libx264) + libv4l
+  ansible.builtin.dnf:
+    # Swap from ffmpeg-free → ffmpeg from rpmfusion. allowerasing
+    # because EL10 ships libswscale-free in baseos which conflicts.
+    name:
+      - ffmpeg
+      - libv4l
+    state: present
+    allowerasing: true
+
+- name: ensure trashcam libexec dir
+  ansible.builtin.file:
+    path: /usr/libexec/trashcam
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: install trashcam-ffmpeg wrapper
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../capture/bin/trashcam-ffmpeg"
+    dest: /usr/libexec/trashcam/trashcam-ffmpeg
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart trashcam units
+
+- name: install trashcam@.service unit
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../capture/systemd/trashcam@.service"
+    dest: /etc/systemd/system/trashcam@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: install trashcam.target
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../capture/systemd/trashcam.target"
+    dest: /etc/systemd/system/trashcam.target
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: ensure /etc/trashcam exists
+  ansible.builtin.file:
+    path: "{{ trashcam_etc_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: confirm each camera device is present
+  ansible.builtin.stat:
+    path: "{{ item.device }}"
+  loop: "{{ trashcam_cameras }}"
+  loop_control:
+    label: "{{ item.id }} ({{ item.device }})"
+  register: camera_stat
+  failed_when: not camera_stat.stat.exists
+  changed_when: false
+
+- name: write per-camera environment files
+  ansible.builtin.template:
+    src: camera.env.j2
+    dest: "{{ trashcam_etc_dir }}/{{ item.id }}.env"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ trashcam_cameras }}"
+  loop_control:
+    label: "{{ item.id }}"
+  notify: restart trashcam units
+
+# Flush handlers (daemon-reload) before enabling units, so systemd
+# sees the unit files.
+- name: flush handlers (daemon-reload)
+  ansible.builtin.meta: flush_handlers
+
+- name: enable trashcam.target
+  ansible.builtin.systemd:
+    name: "{{ trashcam_unit_target }}"
+    enabled: true
+
+- name: enable + start trashcam@<id> for each camera
+  ansible.builtin.systemd:
+    name: "trashcam@{{ item.id }}.service"
+    enabled: true
+    state: started
+  loop: "{{ trashcam_cameras }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: collect per-camera unit status
+  ansible.builtin.command:
+    cmd: "systemctl is-active trashcam@{{ item.id }}.service"
+  loop: "{{ trashcam_cameras }}"
+  loop_control:
+    label: "{{ item.id }}"
+  register: unit_status
+  changed_when: false
+  failed_when: false
+
+- name: summarize
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} {{ item.item.id }} → {{ item.stdout | default('unknown') }}
+  loop: "{{ unit_status.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"

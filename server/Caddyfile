@@ -1,0 +1,70 @@
+{
+	auto_https off
+	servers {
+		metrics
+	}
+	log {
+		format json
+		level INFO
+	}
+}
+
+# HTTPS for the public DNS alias. Cert is mounted at /etc/caddy/tls/
+# from a cert-manager-provisioned Kubernetes Secret. Tailscale operator
+# proxies tailnet :443 -> Caddy :443 TCP pass-through; Caddy answers
+# with this cert when SNI matches the configured hostname.
+#
+# Replace the hostname below with your own (or template it through
+# kustomize if you're publishing multiple environments).
+trashmonitor.<your-zone>:443 {
+	tls /etc/caddy/tls/tls.crt /etc/caddy/tls/tls.key
+	encode zstd gzip
+
+	@hls path_regexp ^/[^/]+/.+\.(m3u8|ts|mp4|m4s)$
+	handle @hls {
+		reverse_proxy 127.0.0.1:8888 {
+			flush_interval -1
+		}
+	}
+
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy 127.0.0.1:9997 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv/spa
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Plain HTTP on :8080 — used by:
+#  - the tailscale operator proxy (HTTP only for the .ts.net hostname
+#    until tailnet admin enables MagicDNS HTTPS)
+#  - HTTP requests to the public alias (no TLS required for tailnet-only)
+:8080 {
+	encode zstd gzip
+
+	@hls path_regexp ^/[^/]+/.+\.(m3u8|ts|mp4|m4s)$
+	handle @hls {
+		reverse_proxy 127.0.0.1:8888 {
+			flush_interval -1
+		}
+	}
+
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy 127.0.0.1:9997 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv/spa
+		try_files {path} /index.html
+		file_server
+	}
+}

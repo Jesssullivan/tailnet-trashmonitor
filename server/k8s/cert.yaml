@@ -1,0 +1,48 @@
+# cert-manager wiring for the public DNS alias.
+#
+# Before applying:
+#   - Replace <your-acme-email> and <your-zone> below.
+#   - Create the `cloudflare-api-token` Secret in the cert-manager
+#     namespace, with a token that has zone:dns:edit on <your-zone>.
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-trashmonitor
+  labels:
+    app.kubernetes.io/name: trashmonitor
+spec:
+  acme:
+    email: <your-acme-email>
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-trashmonitor-account
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        selector:
+          dnsZones:
+            - <your-zone>
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: trashmonitor-tls-cert
+  namespace: trashmonitor
+spec:
+  secretName: trashmonitor-ephemera-tls
+  duration: 2160h    # 90d (LE max)
+  renewBefore: 360h  # renew 15d before expiry
+  issuerRef:
+    name: letsencrypt-trashmonitor
+    kind: ClusterIssuer
+  commonName: trashmonitor.<your-zone>
+  dnsNames:
+    - trashmonitor.<your-zone>
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment

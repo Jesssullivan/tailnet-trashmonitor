@@ -1,0 +1,66 @@
+# Two services:
+# 1. tailnet-facing LoadBalancer for the SPA + viewer MJPEG (HTTPS via tailscale-operator)
+# 2. ClusterIP for RTSP publish from capture hosts (already on the tailnet,
+#    routed via a Tailscale subnet route or a separate tailnet hostname).
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trashmonitor
+  namespace: trashmonitor
+  annotations:
+    tailscale.com/hostname: trashmonitor
+    # tailscale.com/proxy-class: <your-proxy-class>   # uncomment if you
+    # have a ProxyClass configured (e.g. to pin egress through specific
+    # subnet routers). Tailnet membership remains the auth boundary
+    # either way.
+    #
+    # HTTPS on :443 is auto-provisioned by the operator IF MagicDNS
+    # HTTPS is enabled in the tailnet admin console
+    # (login.tailscale.com → DNS → HTTPS Certificates).
+  labels:
+    app.kubernetes.io/name: trashmonitor
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app.kubernetes.io/name: trashmonitor
+  ports:
+    - { name: http,  port: 80,  targetPort: http,  protocol: TCP }
+    - { name: https, port: 443, targetPort: https, protocol: TCP }
+---
+# Separate tailnet hostname for RTSP publish from capture hosts.
+# Keeps the public/viewer surface (HTTPS only) clean.
+apiVersion: v1
+kind: Service
+metadata:
+  name: trashmonitor-rtsp
+  namespace: trashmonitor
+  annotations:
+    tailscale.com/hostname: trashmonitor-rtsp
+    # tailscale.com/proxy-class: <your-proxy-class>
+  labels:
+    app.kubernetes.io/name: trashmonitor
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app.kubernetes.io/name: trashmonitor
+  ports:
+    - { name: rtsp, port: 8554, targetPort: rtsp, protocol: TCP }
+---
+# Cluster-internal service for Prometheus scrape of the MediaMTX API.
+apiVersion: v1
+kind: Service
+metadata:
+  name: trashmonitor-metrics
+  namespace: trashmonitor
+  labels:
+    app.kubernetes.io/name: trashmonitor
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: trashmonitor
+  ports:
+    - { name: api,     port: 9997, targetPort: api,     protocol: TCP }
+    - { name: metrics, port: 9998, targetPort: metrics, protocol: TCP }

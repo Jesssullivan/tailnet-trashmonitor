@@ -1,0 +1,18 @@
+common --enable_bzlmod
+build --incompatible_strict_action_env
+build --verbose_failures
+test --test_output=errors
+
+# Local disk cache keeps incremental builds fast.
+build --disk_cache=.bazel-cache
+
+# Cluster OCI image targets linux/amd64. rules_oci selects the
+# right base manifest from the platform-tagged repos.
+build --platforms=//:linux_amd64
+
+# Note: `bazel run //server:image-push` works on linux CI runners
+# but not on darwin dev hosts — aspect_bazel_lib's jq toolchain
+# selects by target platform, so the runner picks a linux jq that
+# can't exec on darwin. Use `just image-push <tag>` (which uses
+# `crane push`) for darwin pushes; CI can use the bazel target.
+

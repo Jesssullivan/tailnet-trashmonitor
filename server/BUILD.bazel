@@ -1,0 +1,88 @@
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+
+package(default_visibility = ["//visibility:public"])
+
+# Caddyfile + mediamtx.yml + entrypoint placed into the image's canonical
+# paths via pkg_files (remap_paths in pkg_tar 1.1.0 does not honor
+# unprefixed source labels reliably).
+
+pkg_files(
+    name = "caddy-config",
+    srcs = ["Caddyfile"],
+    prefix = "/etc/caddy",
+)
+
+pkg_files(
+    name = "mediamtx-config",
+    srcs = ["mediamtx.yml"],
+    prefix = "/etc",
+)
+
+pkg_files(
+    name = "entrypoint-bin",
+    srcs = ["entrypoint.sh"],
+    prefix = "/usr/local/bin",
+    attributes = pkg_attributes(mode = "0755"),
+    renames = {"entrypoint.sh": "entrypoint"},
+)
+
+pkg_files(
+    name = "mediamtx-bin",
+    srcs = ["@mediamtx_linux_amd64//:binary"],
+    prefix = "/usr/local/bin",
+    attributes = pkg_attributes(mode = "0755"),
+)
+
+pkg_files(
+    name = "caddy-bin",
+    srcs = ["@caddy_linux_amd64//:binary"],
+    prefix = "/usr/local/bin",
+    attributes = pkg_attributes(mode = "0755"),
+)
+
+pkg_tar(
+    name = "config-layer",
+    srcs = [
+        ":caddy-bin",
+        ":caddy-config",
+        ":entrypoint-bin",
+        ":mediamtx-bin",
+        ":mediamtx-config",
+    ],
+)
+
+# Take the prebuilt SPA bundle from //spa and overlay it.
+oci_image(
+    name = "image",
+    base = "@alpine_base",
+    entrypoint = ["/usr/local/bin/entrypoint"],
+    exposed_ports = ["8080/tcp", "8554/tcp", "8888/tcp", "9997/tcp", "9998/tcp"],
+    tars = [
+        ":config-layer",
+        "//spa:bundle",
+    ],
+    labels = {
+        "org.opencontainers.image.title": "trashmonitor",
+        "org.opencontainers.image.source": "https://github.com/<your-org>/tailnet-trashmonitor",
+    },
+)
+
+# Local docker load for development.
+oci_load(
+    name = "image-load",
+    image = ":image",
+    repo_tags = ["trashmonitor:dev"],
+)
+
+# Push to the registry. Override the repository via the GHCR_REPO env
+# var when invoking `just image-push`; on darwin hosts prefer that path,
+# which uses `crane` to avoid the aspect_bazel_lib jq target-platform
+# mismatch with `bazel run`.
+oci_push(
+    name = "image-push",
+    image = ":image",
+    remote_tags = ["latest", "0.0.1"],
+    repository = "ghcr.io/<your-org>/tailnet-trashmonitor",
+)

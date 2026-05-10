@@ -1,0 +1,21 @@
+load("@rules_pkg//pkg:rpm.bzl", "pkg_rpm")
+
+package(default_visibility = ["//visibility:public"])
+
+# pkg_rpm dispatches by attribute: `spec_file` selects the legacy
+# rpmbuild-style flow, which seeds the build root from `data` and runs
+# the spec's %install. The %install section in rpm/trashcam.spec
+# references these files by basename.
+pkg_rpm(
+    name = "trashcam-rpm",
+    spec_file = "rpm/trashcam.spec",
+    data = [
+        "bin/trashcam-ffmpeg",
+        "config/trashcam.env.example",
+        "systemd/trashcam.target",
+        "systemd/trashcam@.service",
+    ],
+    architecture = "noarch",
+    release = "1",
+    version = "0.0.1",
+)

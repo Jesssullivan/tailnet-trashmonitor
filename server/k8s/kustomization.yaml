@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: trashmonitor
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  # cert.yaml provisions a Let's Encrypt cert via cert-manager DNS-01.
+  # Edit <your-zone> + <your-acme-email> first, ensure cert-manager is
+  # installed, and uncomment to apply.
+  # - cert.yaml
+  #
+  # servicemonitor.yaml requires the prometheus-operator CRDs. Apply
+  # manually once CRDs are present:
+  #   kubectl apply -f server/k8s/servicemonitor.yaml
+  # PrometheusRule (otel/alert-rules.yaml) similarly.
+
+commonLabels:
+  app.kubernetes.io/part-of: trashmonitor
+
+images:
+  - name: ghcr.io/<your-org>/tailnet-trashmonitor
+    newTag: 0.0.1

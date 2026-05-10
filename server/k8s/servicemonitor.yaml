@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: trashmonitor
+  namespace: trashmonitor
+  labels:
+    app.kubernetes.io/name: trashmonitor
+    release: prometheus              # match the cluster's kube-prometheus-stack selector
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: trashmonitor
+  namespaceSelector:
+    matchNames: [trashmonitor]
+  endpoints:
+    - port: metrics
+      path: /metrics                  # MediaMTX Prometheus metrics
+      interval: 30s
+      honorLabels: true
