@@ -1,5 +1,4 @@
-tailnet-trashmonitor
-====================
+# tailnet-trashmonitor
 
 Tailnet-only webcam streaming. Capture hosts (any Linux box with a
 V4L2 webcam) push H.264-over-RTSP into a small MediaMTX + Caddy + SPA
@@ -9,14 +8,60 @@ Tailscale Kubernetes operator.
 The repo is intentionally small. It is a working example of a
 single-tenant, tailnet-scoped streaming surface, not a product.
 
+## Setup photos
 
-Architecture
-------------
+<p>
+  <img src="docs/assets/trashmonitor-setup.webp" alt="Physical trashmonitor capture setup" width="360">
+  <img src="docs/assets/trashmonitor-screenshot.webp" alt="Trashmonitor stream dashboard screenshot" width="360">
+</p>
 
-    capture-host-a (ffmpeg, libx264, RTSP push) ─┐
-                                                 ├─► MediaMTX (cluster) ─► HLS ─► hls.js ─► SPA tile
-    capture-host-b (ffmpeg, libx264, RTSP push) ─┘                                         (tailnet HTTPS via
-                                                                                            tailscale-operator)
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Capture["Capture hosts on the tailnet"]
+        Camera["V4L2 webcam"] --> Unit["trashcam@id.service"]
+        Unit --> FFmpeg["ffmpeg + libx264"]
+        Env["/etc/trashcam/id.env"] -. config .-> Unit
+        Ansible["ansible role or RPM"] -. provisions .-> Env
+    end
+
+    subgraph Tailnet["Tailscale auth boundary"]
+        RtspLB["trashmonitor-rtsp LoadBalancer"]
+        WebLB["trashmonitor LoadBalancer"]
+    end
+
+    subgraph Cluster["Kubernetes namespace: trashmonitor"]
+        Caddy["Caddy"]
+        MediaMTX["MediaMTX"]
+        Api["MediaMTX API :9997"]
+        Hls["MediaMTX HLS :8888"]
+        Metrics["MediaMTX metrics :9998"]
+        Spa["Static SvelteKit SPA"]
+        Cert["cert-manager TLS secret"]
+    end
+
+    Browser["Tailnet browser with hls.js"] -->|"GET /, /api, /stream/index.m3u8"| WebLB
+    WebLB -->|"80 or 443"| Caddy
+    Caddy -->|"serves /srv/spa"| Spa
+    Caddy -->|"strip /api"| Api
+    Caddy -->|"proxy HLS playlists and segments"| Hls
+
+    FFmpeg -->|"RTSP over TCP publish to :8554/id"| RtspLB
+    RtspLB -->|"8554"| MediaMTX
+    MediaMTX --> Api
+    MediaMTX --> Hls
+    MediaMTX --> Metrics
+
+    Cloudflare["Cloudflare A record to tailnet IP"] -. alias .-> Browser
+    SplitDNS["Tailscale split-DNS for your zone"] -. resolver path .-> Browser
+    Cert -. mounted into .-> Caddy
+```
+
+Tailnet membership is the auth boundary. MediaMTX is configured to
+allow anonymous publish, read, API, and metrics access because both the
+viewer service and RTSP ingest service are exposed through Tailscale
+LoadBalancers rather than the public internet.
 
 - Capture hosts are provisioned with the ansible role under
   `ansible/roles/trashcam`. A systemd template unit
@@ -33,8 +78,7 @@ Architecture
   via `hls.js`.
 
 
-Repo layout
------------
+## Repo layout
 
     spa/        SvelteKit SPA (Runes, static)
     capture/    Capture-host artifacts: systemd unit, RPM spec, ffmpeg wrapper
@@ -45,8 +89,7 @@ Repo layout
     flake.nix   Dev shell (bazel + just + pnpm + node + ansible + ffmpeg + kube tools)
 
 
-Quick start
------------
+## Quick start
 
     nix develop                # enter dev shell
     just setup                 # pnpm install in spa/
@@ -64,8 +107,7 @@ Quick start
     just ghcr-secret           # reconcile the in-namespace ghcr pull secret
 
 
-Configuration
--------------
+## Configuration
 
 The Justfile reads the following environment variables; defaults are
 placeholders that you must override:
@@ -82,8 +124,7 @@ placeholders that you must override:
 Drop these into a `.env` next to the Justfile (gitignored).
 
 
-Cluster image
--------------
+## Cluster image
 
 There is no top-level Dockerfile. The cluster image is assembled by
 Bazel (`server/BUILD.bazel`) layering Caddy + MediaMTX + the prebuilt
@@ -91,8 +132,7 @@ SPA bundle. The SPA build itself is driven by pnpm + vite out-of-band
 (see `just spa-build`); Bazel just packages the static output.
 
 
-Observability
--------------
+## Observability
 
 MediaMTX exposes Prometheus metrics on `:9998/metrics` inside the pod
 and via the `trashmonitor-metrics` ClusterIP service. The `otel/`
@@ -106,11 +146,11 @@ If your cluster has no in-cluster Prometheus, expose the
 operator pattern) and scrape it from an external Prometheus.
 
 
-DNS / tailnet alias
--------------------
+## DNS / tailnet alias
 
 A Cloudflare A record can give the workload a friendly hostname that
-still only resolves on-tailnet:
+is publicly resolvable but only routable from tailnet-connected
+devices:
 
     trashmonitor.<your-zone>   A   <tailnet IP>     (a CGNAT 100.64.0.0/10 address)
 
@@ -128,8 +168,7 @@ HTTPS is served directly by Caddy with a Let's Encrypt cert
 provisioned by cert-manager via DNS-01 (see `server/k8s/cert.yaml`).
 
 
-See also
---------
+## See also
 
 - `AGENTS.md`            operator boundaries and resilience notes
 - `capture/rpm/`         RPM-only bring-up path (no ansible)
