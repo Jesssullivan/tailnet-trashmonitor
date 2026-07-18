@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jesssullivan/tailnet-trashmonitor/vision/schemas/event.json",
+  "title": "VisionEvent",
+  "description": "An observation emitted by a vision sidecar consuming one stream from MediaMTX. The sidecar is stateless and emits raw signals only; interpretation (HID actions, alerting, rules) lives in downstream subscribers — typically the betterkvm bridge.",
+  "type": "object",
+  "required": ["stream_id", "ts_capture_ns", "ts_detected_ns", "source", "roi", "metric", "signal"],
+  "additionalProperties": false,
+  "properties": {
+    "stream_id": {
+      "type": "string",
+      "description": "MediaMTX path name (e.g. cam-a). Matches the trashcam@<id>.service instance and the camera id in the ansible inventory.",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "ts_capture_ns": {
+      "type": "integer",
+      "description": "Nanosecond timestamp of the source frame's capture (RTP timestamp mapped to wall clock when available, sidecar receipt time otherwise).",
+      "minimum": 0
+    },
+    "ts_detected_ns": {
+      "type": "integer",
+      "description": "Nanosecond wall-clock timestamp when the detector emitted this event. ts_detected_ns - ts_capture_ns approximates capture-to-detection latency.",
+      "minimum": 0
+    },
+    "source": {
+      "type": "string",
+      "description": "Detector family. Phase 1: color, diff, ssim. Phase 2: haar. Phase 3: yolo.",
+      "enum": ["color", "diff", "ssim", "haar", "yolo"]
+    },
+    "roi": {
+      "type": "object",
+      "description": "Region of interest in source-frame pixel coordinates. Full frame is { x:0, y:0, w:width, h:height }.",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "description": "The scalar measurement this event reports. Detectors may emit multiple metrics per frame as separate events.",
+      "required": ["name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Detector-defined metric name. Examples: mean_bgr_b, mean_bgr_g, mean_bgr_r, mean_hsv_h, mean_hsv_s, mean_hsv_v, absdiff_mean, ssim, class_confidence."
+        },
+        "value": {
+          "type": "number",
+          "description": "Metric value in detector-defined units."
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Threshold the metric crossed to trigger this event. Omit for sampled (non-triggered) events."
+        }
+      }
+    },
+    "signal": {
+      "description": "Action hint. The sidecar always emits 'raw' — the bridge translates raw events into HID actions via a separate policy.",
+      "oneOf": [
+        { "const": "raw" },
+        {
+          "type": "object",
+          "required": ["action", "payload"],
+          "additionalProperties": false,
+          "properties": {
+            "action": { "type": "string", "enum": ["hid.key", "hid.mouse"] },
+            "payload": { "type": "object" }
+          }
+        }
+      ]
+    }
+  }
+}

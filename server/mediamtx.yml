@@ -36,10 +36,28 @@ hlsAllowOrigins: ["*"]
 
 # Disable everything else — keep the surface tight.
 rtmp: no
-webrtc: no
 srt: no
 api: yes
 apiAddress: :9997
+
+# WebRTC — sub-second viewer path, replacing HLS for live monitoring.
+# Both peers are tailnet-attached over CGNAT (100.64/10); the WireGuard
+# underlay already handles NAT traversal, so MediaMTX only needs to
+# advertise a host candidate pointing at the tailnet hostname of the
+# `trashmonitor-webrtc` LoadBalancer Service. No STUN/TURN.
+#
+# webrtcAdditionalHosts must match the FQDN of the trashmonitor-webrtc
+# Tailscale LB hostname (see server/k8s/service.yaml). Replace
+# <your-tailnet> to match TS_TAILNET in your .env.
+webrtc: yes
+webrtcAddress: :8889
+webrtcEncryption: no
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8189
+webrtcIPsFromInterfaces: no
+webrtcICEServers2: []
+webrtcAdditionalHosts:
+  - trashmonitor-webrtc.<your-tailnet>.ts.net
 
 # Prometheus metrics for the cluster's observability stack to scrape.
 metrics: yes

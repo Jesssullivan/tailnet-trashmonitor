@@ -14,7 +14,8 @@
   serial: 1                 # one host at a time so failures don't cascade
 
   vars:
-    trashcam_push_host: "trashmonitor-rtsp"   # tailnet hostname of the cluster service
+    # Each camera derives its push host from its id (cam-a → cam-a-rtsp).
+    # See ansible/roles/trashcam/defaults/main.yml for override hook.
     trashcam_push_port: 8554
 
   pre_tasks:

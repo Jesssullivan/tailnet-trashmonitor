@@ -26,37 +26,46 @@ flowchart LR
         Ansible["ansible role or RPM"] -. provisions .-> Env
     end
 
-    subgraph Tailnet["Tailscale auth boundary"]
-        RtspLB["trashmonitor-rtsp LoadBalancer"]
-        WebLB["trashmonitor LoadBalancer"]
+    subgraph Tailnet["Tailscale auth boundary (one set of hostnames per stream)"]
+        RtspLB["&lt;id&gt;-rtsp LoadBalancer"]
+        WebLB["&lt;id&gt; LoadBalancer (viewer)"]
+        WebrtcLB["&lt;id&gt;-webrtc LoadBalancer"]
     end
 
-    subgraph Cluster["Kubernetes namespace: trashmonitor"]
+    subgraph Cluster["Kubernetes namespace: trashmonitor (one Deployment per stream)"]
         Caddy["Caddy"]
         MediaMTX["MediaMTX"]
         Api["MediaMTX API :9997"]
-        Hls["MediaMTX HLS :8888"]
+        Webrtc["MediaMTX WebRTC :8889 + :8189"]
         Metrics["MediaMTX metrics :9998"]
         Spa["Static SvelteKit SPA"]
         Cert["cert-manager TLS secret"]
     end
 
-    Browser["Tailnet browser with hls.js"] -->|"GET /, /api, /stream/index.m3u8"| WebLB
+    Browser["Tailnet browser"] -->|"GET /, /api"| WebLB
+    Browser -->|"WHEP + ICE"| WebrtcLB
     WebLB -->|"80 or 443"| Caddy
+    WebrtcLB -->|"8889 / 8189"| Webrtc
     Caddy -->|"serves /srv/spa"| Spa
     Caddy -->|"strip /api"| Api
-    Caddy -->|"proxy HLS playlists and segments"| Hls
 
     FFmpeg -->|"RTSP over TCP publish to :8554/id"| RtspLB
     RtspLB -->|"8554"| MediaMTX
     MediaMTX --> Api
-    MediaMTX --> Hls
+    MediaMTX --> Webrtc
     MediaMTX --> Metrics
 
     Cloudflare["Cloudflare A record to tailnet IP"] -. alias .-> Browser
     SplitDNS["Tailscale split-DNS for your zone"] -. resolver path .-> Browser
     Cert -. mounted into .-> Caddy
 ```
+
+Each stream gets its own pod and its own set of three tailnet
+LoadBalancer hostnames (`<id>`, `<id>-webrtc`, `<id>-rtsp`) so
+Tailscale picks an independent DERP region per stream and a hot stream
+does not share blast radius with the others. Adding a stream is one
+new file (`server/k8s/stream-<id>.yaml`) referenced from
+`server/k8s/kustomization.yaml`.
 
 Tailnet membership is the auth boundary. MediaMTX is configured to
 allow anonymous publish, read, API, and metrics access because both the

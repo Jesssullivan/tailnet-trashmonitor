@@ -111,6 +111,29 @@ image-load: spa-build
     bazel run //server:image-load
 
 # ─────────────────────────────────────────────
+# Vision sidecar (out-of-band docker build; not in Bazel because
+# rules_python is not wired — matches the SPA's pnpm+vite pattern)
+# ─────────────────────────────────────────────
+
+vision_repo := env_var_or_default("VISION_REPO", "ghcr.io/<your-org>/trashmonitor-vision")
+
+[doc("Build the vision sidecar image locally")]
+vision-image-build:
+    docker build -t trashmonitor-vision:dev {{ root }}/vision
+
+[doc("Push the vision sidecar image to VISION_REPO (TAG=0.0.x, defaults to dev)")]
+vision-image-push tag="dev": vision-image-build
+    docker tag trashmonitor-vision:dev {{ vision_repo }}:{{ tag }}
+    docker push {{ vision_repo }}:{{ tag }}
+
+[doc("Run the vision sidecar locally against an RTSP URL (smoke test)")]
+vision-run-local stream rtsp:
+    docker run --rm --network host \
+        -e VISION_STREAM_ID={{ stream }} \
+        -e VISION_RTSP_URL={{ rtsp }} \
+        trashmonitor-vision:dev
+
+# ─────────────────────────────────────────────
 # Provision capture hosts (over tailnet via ansible)
 # ─────────────────────────────────────────────
 

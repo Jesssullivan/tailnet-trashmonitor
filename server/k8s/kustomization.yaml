@@ -5,8 +5,11 @@ namespace: trashmonitor
 
 resources:
   - namespace.yaml
-  - deployment.yaml
   - service.yaml
+  # Per-stream Deployments + LB Services. Add a new stream by copying
+  # stream-cam-a.yaml to stream-<id>.yaml and listing it here.
+  - stream-cam-a.yaml
+  - stream-cam-b.yaml
   # cert.yaml provisions a Let's Encrypt cert via cert-manager DNS-01.
   # Edit <your-zone> + <your-acme-email> first, ensure cert-manager is
   # installed, and uncomment to apply.
@@ -17,8 +20,14 @@ resources:
   #   kubectl apply -f server/k8s/servicemonitor.yaml
   # PrometheusRule (otel/alert-rules.yaml) similarly.
 
-commonLabels:
-  app.kubernetes.io/part-of: trashmonitor
+# House labels (matches the live trashmonitor namespace on the honey
+# cluster; see ../blahaj for the broader convention). Propagated to
+# pod templates and selectors so per-stream selectors stay correct.
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: trashmonitor
+      blahaj.dev/layer: tailnet
 
 images:
   - name: ghcr.io/<your-org>/tailnet-trashmonitor

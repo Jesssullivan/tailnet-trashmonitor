@@ -27,6 +27,27 @@ trashmonitor.<your-zone>:443 {
 		}
 	}
 
+	# WHEP / WHIP signaling for MediaMTX's WebRTC server. Caddy only
+	# proxies the SDP exchange (TCP/8889); media flows over UDP/8189
+	# directly to the per-stream <id>-webrtc tailnet hostname that
+	# MediaMTX advertises via webrtcAdditionalHosts. See server/
+	# entrypoint.sh for the per-pod render.
+	@webrtc path_regexp ^/[^/]+/wh(ep|ip)$
+	handle @webrtc {
+		reverse_proxy 127.0.0.1:8889 {
+			flush_interval -1
+		}
+	}
+
+	# Also proxy the WHEP session resource URLs MediaMTX returns in
+	# the Location header (used by the browser to DELETE on teardown).
+	@webrtc-session path_regexp ^/[^/]+/wh(ep|ip)/[^/]+$
+	handle @webrtc-session {
+		reverse_proxy 127.0.0.1:8889 {
+			flush_interval -1
+		}
+	}
+
 	handle /api/* {
 		uri strip_prefix /api
 		reverse_proxy 127.0.0.1:9997 {
@@ -51,6 +72,27 @@ trashmonitor.<your-zone>:443 {
 	@hls path_regexp ^/[^/]+/.+\.(m3u8|ts|mp4|m4s)$
 	handle @hls {
 		reverse_proxy 127.0.0.1:8888 {
+			flush_interval -1
+		}
+	}
+
+	# WHEP / WHIP signaling for MediaMTX's WebRTC server. Caddy only
+	# proxies the SDP exchange (TCP/8889); media flows over UDP/8189
+	# directly to the per-stream <id>-webrtc tailnet hostname that
+	# MediaMTX advertises via webrtcAdditionalHosts. See server/
+	# entrypoint.sh for the per-pod render.
+	@webrtc path_regexp ^/[^/]+/wh(ep|ip)$
+	handle @webrtc {
+		reverse_proxy 127.0.0.1:8889 {
+			flush_interval -1
+		}
+	}
+
+	# Also proxy the WHEP session resource URLs MediaMTX returns in
+	# the Location header (used by the browser to DELETE on teardown).
+	@webrtc-session path_regexp ^/[^/]+/wh(ep|ip)/[^/]+$
+	handle @webrtc-session {
+		reverse_proxy 127.0.0.1:8889 {
 			flush_interval -1
 		}
 	}

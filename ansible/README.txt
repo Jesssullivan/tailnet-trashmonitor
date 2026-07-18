@@ -30,7 +30,12 @@ interactive sudo password. To skip the prompt, set
 Cluster RTSP target
 -------------------
 
-The role pushes to `rtsp://trashmonitor-rtsp.<your-tailnet>.ts.net:8554/<id>`,
-where `trashmonitor-rtsp` is the second tailnet hostname declared in
-`server/k8s/service.yaml`. The cluster must be deployed
+Each camera publishes to its own per-stream RTSP tailnet hostname,
+`rtsp://<id>-rtsp.<your-tailnet>.ts.net:8554/<id>` (e.g. cam-a publishes
+to cam-a-rtsp:8554/cam-a). The matching `<id>-rtsp` Service is declared
+in `server/k8s/stream-<id>.yaml`. The cluster must be deployed
 (`just deploy`) before capture hosts can publish frames.
+
+To override the derived hostname for a specific camera (e.g. while
+migrating), set `push_host` on that camera in the inventory's
+`trashcam_cameras` list.

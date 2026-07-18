@@ -3,11 +3,41 @@
 ## Boundaries
 
 - Owns: capture-host RPM artifacts, the SvelteKit SPA, the cluster
-  OCI image (MediaMTX + Caddy + SPA), and the kustomize deployment
-  manifests for the `trashmonitor` workload.
+  OCI image (MediaMTX + Caddy + SPA), the per-stream kustomize
+  deployment manifests, and the vision sidecar under `vision/`.
 - Does not own: tailnet ACLs, cluster-wide Tailscale operator config,
+  the `honey-sting-tailnet` ProxyClass (defined in `../blahaj`),
   on-host network configuration, or RouterOS surface. These live
   outside this repo.
+
+## Target cluster + house standards
+
+Manifests target the `honey` Kubernetes context. The live deployment
+follows conventions inherited from `../blahaj`:
+
+- **Labels** (applied by `server/k8s/kustomization.yaml` via the modern
+  `labels: includeSelectors: true` block so they propagate into both
+  pod templates and selectors): every resource carries
+  `app.kubernetes.io/part-of: trashmonitor` and
+  `blahaj.dev/layer: tailnet`. Per-stream resources additionally carry
+  `trashmonitor.stream: <id>` for selector disambiguation.
+- **Tailscale ProxyClass**: every `loadBalancerClass: tailscale`
+  Service must set the annotation
+  `tailscale.com/proxy-class: honey-sting-tailnet`. The ProxyClass
+  pins operator-proxy pods to nodes `honey` + `sting` with topology
+  spread; without the annotation the operator schedules its proxies
+  anywhere.
+- **CI / validation**: this repo has no `.github/` workflows. Local
+  validation runs through huskycat (`mcp__huskycat__*` tools) and the
+  `just` recipes (`spa-check`, `spa-lint`, `k8s-lint`, `rpm-lint`,
+  `gitleaks`). Don't add GitHub Actions unless the operator asks.
+- **Public-ready placeholders**: `<your-org>`, `<your-tailnet>`,
+  `<your-zone>`, `<your-email>` are intentional public-repo template
+  defaults — Justfile reads `.env` to substitute real values at
+  deploy. Do not commit substituted-real values into the YAML files
+  themselves (the live cluster's real values are `tinyland-inc`,
+  `taila4c78d.ts.net`, etc — these go through Justfile env vars,
+  not into committed YAML).
 
 ## Working rules
 

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import Hls from 'hls.js';
+	import { negotiateWhep, type WhepSession } from '$lib/whep';
+	import { startRttProbe, consoleSink } from '$lib/rtt-probe';
 
 	type Codec = { codec: string; width?: number; height?: number; profile?: string };
 	type Path = {
@@ -58,18 +59,31 @@
 		return () => clearInterval(id);
 	});
 
-	const attachHls = (video: HTMLVideoElement, name: string) => {
-		const url = `/${encodeURIComponent(name)}/index.m3u8`;
-		if (Hls.isSupported()) {
-			const hls = new Hls({ liveDurationInfinity: true, enableWorker: true });
-			hls.loadSource(url);
-			hls.attachMedia(video);
-			return {
-				destroy: () => hls.destroy(),
-			};
-		}
-		video.src = url;
-		return { destroy: () => {} };
+	const attachWhep = (video: HTMLVideoElement, name: string) => {
+		const whepUrl = `/${encodeURIComponent(name)}/whep`;
+		let session: WhepSession | null = null;
+		let stopRtt: (() => void) | null = null;
+
+		negotiateWhep({
+			whepUrl,
+			video,
+			onConnected: (pc) => {
+				stopRtt = startRttProbe(pc, name, consoleSink);
+			},
+		})
+			.then((s) => {
+				session = s;
+			})
+			.catch((err) => {
+				lastError = `WHEP ${name}: ${err instanceof Error ? err.message : String(err)}`;
+			});
+
+		return {
+			destroy: () => {
+				stopRtt?.();
+				void session?.close();
+			},
+		};
 	};
 
 	const requestFullscreen = (el: HTMLElement) => {
@@ -139,7 +153,7 @@
 							autoplay
 							muted
 							playsinline
-							use:attachHls={p.name}
+							use:attachWhep={p.name}
 						>
 							<track kind="captions" />
 						</video>

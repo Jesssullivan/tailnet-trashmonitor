@@ -1,9 +1,12 @@
 ---
 # Per-host inventory must override:
 #   trashcam_cameras: list of {id, device, fps, quality, width, height}
+#
+# Each camera publishes to its own per-stream tailnet hostname,
+# `<id>-rtsp` (e.g. cam-a publishes to cam-a-rtsp:8554/cam-a). Override
+# per-camera with `push_host` if the Service hostname differs.
 trashcam_cameras: []
 
-trashcam_push_host: trashmonitor-rtsp
 trashcam_push_port: 8554
 
 trashcam_etc_dir: /etc/trashcam
