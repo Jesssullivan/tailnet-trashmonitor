@@ -1,3 +1,7 @@
+# Bound idle Bazel servers (TIN-5770, R470): a server left by a dev shell
+# or a one-off build exits after 120 s idle instead of holding RAM for hours.
+startup --max_idle_secs=120
+
 common --enable_bzlmod
 build --incompatible_strict_action_env
 build --verbose_failures
