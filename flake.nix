@@ -59,7 +59,7 @@
 
             echo "trashmonitor dev shell"
             echo "  just --list  → recipes"
-            echo "  bazel info   → bazel sanity"
+            echo "  bazel $(cat .bazelversion 2>/dev/null || echo unpinned) (.bazelversion; no server started)"
           '';
         };
       });

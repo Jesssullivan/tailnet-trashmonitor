@@ -66,6 +66,7 @@ spa-build:
 
 [doc("Build the cross-platform Bazel targets (skips //capture, which needs rpmbuild)")]
 build:
+    @echo "build: local, non-qualifying (no enrolled flywheel lane; TIN-5770 R471)" >&2
     bazel build //server/... //spa/...
 
 [doc("Run all Bazel tests (cross-platform targets only). No-op if no test targets exist.")]
@@ -73,6 +74,7 @@ test:
     #!/usr/bin/env bash
     set -u
     code=0
+    echo "test: local, non-qualifying (no enrolled flywheel lane; TIN-5770 R471)" >&2
     bazel test //server/... //spa/... || code=$?
     # Exit code 4 = "no tests found", treat as success.
     if [ $code -eq 0 ] || [ $code -eq 4 ]; then exit 0; fi
@@ -185,5 +187,5 @@ rpm-lint: rpm
 gitleaks:
     gitleaks detect --no-git --config {{ root }}/.gitleaks.toml --redact --verbose
 
-[doc("Run full local CI (check + lint + build + test + gitleaks)")]
+[doc("Run full local CI (check + lint + build + test + gitleaks); local, non-qualifying")]
 ci: spa-check spa-lint spa-build build test gitleaks
